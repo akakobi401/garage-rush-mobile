@@ -3,37 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GARAGE RUSH - SE OPTIMIZED</title>
+    <title>GARAGE RUSH - AKA KOBI</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@700&display=swap');
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Syncopate', sans-serif; color: #fff; touch-action: none; }
+        
+        /* THE LOGO & SCREEN */
         .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; background: #000; text-align: center; }
-        .gold-btn { background: #ffd700; color: #000; border: none; padding: 15px 40px; font-weight: 900; text-transform: uppercase; cursor: pointer; }
-        #hud { position: fixed; top: 15px; left: 15px; display: none; z-index: 1500; background: rgba(0,0,0,0.8); padding: 12px; border-left: 3px solid #ffd700; pointer-events: none; font-size: 12px; }
-        .heat-container { width: 100px; height: 8px; background: rgba(255,255,255,0.1); margin-top: 5px; border: 1px solid #444; }
-        #heat-bar { width: 0%; height: 100%; background: #0f0; }
-        .joystick-container { position: fixed; bottom: 30px; left: 30px; width: 100px; height: 100px; display: none; z-index: 1500; }
-        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 1px solid #fff; border-radius: 50%; }
-        .joystick-stick { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; background: #ffd700; border-radius: 50%; }
-        #boost-btn { position: fixed; bottom: 35px; right: 35px; width: 80px; height: 80px; display: none; z-index: 1600; background: rgba(255,0,0,0.3); border: 3px solid #f00; border-radius: 50%; color: #fff; font-weight: 900; text-align: center; line-height: 74px; font-size: 12px; }
+        
+        .intro-logo { 
+            width: 280px; 
+            max-width: 80%;
+            margin-bottom: 20px; 
+            animation: logoFloat 3s infinite ease-in-out; 
+            filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+        }
+        @keyframes logoFloat { 
+            0%, 100% { transform: translateY(0) scale(1); } 
+            50% { transform: translateY(-20px) scale(1.05); } 
+        }
+        
+        .gold-btn { background: #ffd700; color: #000; border: none; padding: 18px 45px; font-weight: 900; text-transform: uppercase; cursor: pointer; letter-spacing: 2px; box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+        
+        /* HUD & UI */
+        #hud { position: fixed; top: 20px; left: 20px; display: none; z-index: 1500; background: rgba(0,0,0,0.8); padding: 15px; border-left: 4px solid #ffd700; pointer-events: none; }
+        .heat-container { width: 120px; height: 10px; background: rgba(255,255,255,0.1); margin-top: 8px; border: 1px solid rgba(255,255,255,0.3); }
+        #heat-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.1s; }
+        
+        /* CONTROLS */
+        .joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; display: none; z-index: 1500; }
+        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; }
+        .joystick-stick { position: absolute; top: 50%; left: 50%; width: 55px; height: 55px; margin: -27.5px 0 0 -27.5px; background: #ffd700; border-radius: 50%; box-shadow: 0 0 15px rgba(255,215,0,0.5); }
+        
+        #boost-btn { position: fixed; bottom: 45px; right: 45px; width: 100px; height: 100px; display: none; z-index: 1600; background: rgba(255,0,0,0.2); border: 4px solid #f00; border-radius: 50%; color: #fff; font-weight: 900; text-align: center; line-height: 92px; font-size: 14px; box-shadow: 0 0 20px rgba(255,0,0,0.4); }
     </style>
 </head>
 <body>
 
 <div id="gate" class="screen">
+    <img src="logo.png" class="intro-logo" id="main-logo" onerror="this.src='https://via.placeholder.com/280x150?text=AKA+KOBI'">
     <h1>GARAGE RUSH</h1>
     <button class="gold-btn" id="enter-btn">ENTER ARENA</button>
 </div>
 
 <div id="briefing" class="screen" style="display:none;">
-    <p id="load-status">OPTIMIZING FOR MOBILE...</p>
-    <button class="gold-btn" id="start-btn" disabled>START</button>
+    <h1>MISSION BRIEFING</h1>
+    <p id="load-status" style="color:#ffd700">LOADING ASSETS...</p>
+    <button class="gold-btn" id="start-btn" disabled>START MISSION</button>
 </div>
 
 <div id="hud">
-    <div>TOOLS: <span id="count">0</span>/12</div>
-    <div id="timer" style="font-size: 20px;">1:30</div>
+    <div style="font-size: 12px;">TOOLS: <span id="count" style="color:#ffd700">0</span>/12</div>
+    <div id="timer" style="font-size: 24px; font-weight: 900;">1:30</div>
+    <div style="font-size: 9px; margin-top: 5px;">ENGINE HEAT</div>
     <div class="heat-container"><div id="heat-bar"></div></div>
 </div>
 
@@ -50,26 +73,28 @@ class GarageGame {
         this.active = false;
         this.inputX = 0; this.inputY = 0;
         this.heat = 0; this.overheated = false;
+        
+        // MUSIC INITIALIZATION
         this.music = new Audio('https://dl.dropboxusercontent.com/scl/fi/lg4b8xgncie3x1b1ez4h8/Igzotic-Money-chaser-Official-Music-Video.mp3?rlkey=umjddw56vwumbnd2qjkg0ft2e&raw=1');
         this.music.loop = true;
+        
         this.init();
     }
 
     init() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x020205);
-        this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 500); // Shorter view distance
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         
-        // PERFORMANCE: No Antialias, Low Pixel Ratio
-        this.renderer = new THREE.WebGLRenderer({ antialias: false, precision: "lowp" });
-        this.renderer.setPixelRatio(1); // LOCK TO 1.0 FOR IPHONE SE
+        this.renderer = new THREE.WebGLRenderer({ antialias: false });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 1.5)); // Simple light is faster
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.5));
         
         this.player = new THREE.Group();
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 6), new THREE.MeshBasicMaterial({ color: 0xffd700 })); // BasicMaterial is fastest
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.3 }));
         cone.rotation.x = Math.PI / 2;
         this.player.add(cone);
         this.player.position.set(212, 1, -236);
@@ -86,14 +111,15 @@ class GarageGame {
 
         jc.addEventListener('touchstart', (e) => { e.preventDefault(); this.joystickActive = true; });
         jc.addEventListener('touchmove', (e) => {
+            e.preventDefault();
             const touch = e.touches[0];
             const rect = jc.getBoundingClientRect();
             const dx = touch.clientX - (rect.left + rect.width/2);
             const dy = touch.clientY - (rect.top + rect.height/2);
-            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 35);
+            const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
             const angle = Math.atan2(dy, dx);
-            this.inputX = (Math.cos(angle) * dist) / 35;
-            this.inputY = (Math.sin(angle) * dist) / 35;
+            this.inputX = (Math.cos(angle) * dist) / 40;
+            this.inputY = (Math.sin(angle) * dist) / 40;
             js.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
         });
         jc.addEventListener('touchend', () => { this.joystickActive = false; this.inputX = 0; this.inputY = 0; js.style.transform = 'translate(-50%, -50%)'; });
@@ -107,22 +133,22 @@ class GarageGame {
         if(this.active) {
             const bar = document.getElementById('heat-bar');
             if(this.isBoosting && !this.overheated) {
-                this.heat += 1.2;
+                this.heat += 1.0;
                 if(this.heat >= 100) { this.overheated = true; this.isBoosting = false; }
             } else {
-                this.heat = Math.max(0, this.heat - 0.6);
+                this.heat = Math.max(0, this.heat - 0.5);
                 if(this.heat <= 0) this.overheated = false;
             }
             bar.style.width = this.heat + "%";
             bar.style.background = this.overheated ? "#f00" : "#0f0";
 
             if(this.joystickActive) {
-                let speed = (this.isBoosting) ? 1.7 : 0.8;
-                this.player.translateZ(this.inputY * speed);
+                let speed = (this.isBoosting) ? 1.8 : 0.85;
+                this.player.translateZ(this.inputY * speed); // Corrected logic
                 this.player.rotation.y -= this.inputX * 0.08;
             }
         }
-        const camPos = new THREE.Vector3(0, 7, 14).applyQuaternion(this.player.quaternion);
+        const camPos = new THREE.Vector3(0, 8, 16).applyQuaternion(this.player.quaternion);
         this.camera.position.copy(this.player.position).add(camPos);
         this.camera.lookAt(this.player.position);
         this.renderer.render(this.scene, this.camera);
@@ -130,10 +156,18 @@ class GarageGame {
 }
 
 const game = new GarageGame();
+
 document.getElementById('enter-btn').onclick = () => {
-    game.music.play().catch(()=>{});
+    // START MUSIC ON TAP
+    game.music.play().then(() => {
+        console.log("Music Playing");
+    }).catch(e => {
+        console.log("Waiting for user interaction for audio");
+    });
+    
     document.getElementById('gate').style.display = 'none';
     document.getElementById('briefing').style.display = 'flex';
+    
     const loader = new GLTFLoader();
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
@@ -141,9 +175,10 @@ document.getElementById('enter-btn').onclick = () => {
     loader.load('https://dl.dropboxusercontent.com/scl/fi/zyvmatbq3vghfqivnoikt/arena-mobile.glb?rlkey=szzux9sj9td425xngkzu3vni1&raw=1', (gltf) => {
         game.scene.add(gltf.scene);
         document.getElementById('start-btn').disabled = false;
-        document.getElementById('load-status').innerText = "OPTIMIZED FOR SE";
+        document.getElementById('load-status').innerText = "SYSTEMS ONLINE";
     });
 };
+
 document.getElementById('start-btn').onclick = () => {
     document.getElementById('briefing').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
