@@ -3,20 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GARAGE RUSH - MOBILE FIXED</title>
+    <title>GARAGE RUSH - MOBILE</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Syncopate:wght@700&display=swap');
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Syncopate', sans-serif; color: #fff; touch-action: none; }
+        
         .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; background: #000; text-align: center; }
-        .intro-logo { width: 250px; animation: float 3s infinite ease-in-out; margin-bottom: 20px; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-        .gold-btn { background: #ffd700; color: #000; border: none; padding: 15px 40px; font-weight: 900; text-transform: uppercase; cursor: pointer; }
+        .intro-logo { width: 250px; margin-bottom: 20px; animation: logoFloat 3s infinite ease-in-out; }
+        @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
+        
+        .gold-btn { background: #ffd700; color: #000; border: none; padding: 15px 40px; font-weight: 900; text-transform: uppercase; cursor: pointer; letter-spacing: 2px; }
+        
         #hud { position: fixed; top: 20px; left: 20px; display: none; z-index: 500; background: rgba(0,0,0,0.7); padding: 15px; border-left: 4px solid #ffd700; }
+        
+        /* OVERHEAT BAR */
+        .heat-container { width: 100px; height: 10px; background: rgba(255,255,255,0.2); margin-top: 10px; border: 1px solid #fff; }
+        #heat-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.1s; }
+
         .joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; display: none; z-index: 1000; }
-        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 2px solid #fff; border-radius: 50%; }
+        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
         .joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; background: #ffd700; border-radius: 50%; }
-        #radar { position: fixed; bottom: 40px; right: 40px; width: 100px; height: 100px; border: 2px solid #ffd700; border-radius: 50%; display: none; background: rgba(0,20,0,0.5); }
+        
+        .boost-btn { position: fixed; bottom: 40px; right: 40px; width: 90px; height: 90px; display: none; z-index: 1000; background: rgba(255,0,0,0.2); border: 3px solid #f00; border-radius: 50%; color: #f00; font-weight: 900; text-align: center; line-height: 84px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -29,17 +38,19 @@
 
 <div id="briefing" class="screen" style="display:none;">
     <h1>MISSION BRIEFING</h1>
-    <p id="load-status">LOADING...</p>
-    <button class="gold-btn" id="start-btn" disabled>START</button>
+    <p id="load-status">OPTIMIZING ASSETS...</p>
+    <button class="gold-btn" id="start-btn" disabled>START MISSION</button>
 </div>
 
 <div id="hud">
     <div>TOOLS: <span id="count">0</span>/12</div>
     <div id="timer" style="font-size: 20px;">1:30</div>
+    <div style="font-size: 10px; margin-top: 5px;">ENGINE HEAT</div>
+    <div class="heat-container"><div id="heat-bar"></div></div>
 </div>
 
-<div id="radar"><canvas id="radar-canvas" width="100" height="100"></canvas></div>
 <div class="joystick-container"><div class="joystick-base"></div><div class="joystick-stick" id="joystick-stick"></div></div>
+<div class="boost-btn" id="boost-btn">BOOST</div>
 
 <script type="module">
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
@@ -51,9 +62,19 @@ class GarageGame {
         this.active = false;
         this.items = [];
         this.collected = 0;
+        this.timeLeft = 90;
+        
         this.joystickActive = false;
         this.inputX = 0;
         this.inputY = 0;
+        
+        // BOOST SYSTEM
+        this.isBoosting = false;
+        this.heat = 0;
+        this.overheated = false;
+
+        this.music = new Audio('https://dl.dropboxusercontent.com/scl/fi/lg4b8xgncie3x1b1ez4h8/Igzotic-Money-chaser-Official-Music-Video.mp3?rlkey=umjddw56vwumbnd2qjkg0ft2e&raw=1');
+        this.music.loop = true;
         
         this.init();
     }
@@ -62,20 +83,17 @@ class GarageGame {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x020205);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        this.renderer = new THREE.WebGLRenderer({ antialias: false }); // Antialias OFF for Safari RAM
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        // THE LIGHTING YOU LIKED
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
-        const sun = new THREE.DirectionalLight(0xffd700, 1);
-        sun.position.set(10, 20, 10);
-        this.scene.add(sun);
-
-        // THE PLAYER
+        
         this.player = new THREE.Group();
         const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
-        cone.rotation.x = Math.PI / 2; // Lay it flat
+        cone.rotation.x = Math.PI / 2; 
         this.player.add(cone);
         this.player.position.set(212, 1, -236);
         this.scene.add(this.player);
@@ -87,7 +105,8 @@ class GarageGame {
     setupControls() {
         const jc = document.querySelector('.joystick-container');
         const js = document.getElementById('joystick-stick');
-        
+        const bb = document.getElementById('boost-btn');
+
         jc.addEventListener('touchstart', (e) => { e.preventDefault(); this.joystickActive = true; });
         jc.addEventListener('touchmove', (e) => {
             e.preventDefault();
@@ -97,36 +116,44 @@ class GarageGame {
             const dy = touch.clientY - (rect.top + rect.height/2);
             const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
             const angle = Math.atan2(dy, dx);
-            
-            // Raw Inputs
             this.inputX = (Math.cos(angle) * dist) / 40;
             this.inputY = (Math.sin(angle) * dist) / 40;
-            
             js.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
         });
         jc.addEventListener('touchend', () => { this.joystickActive = false; this.inputX = 0; this.inputY = 0; js.style.transform = 'translate(-50%, -50%)'; });
+
+        bb.addEventListener('touchstart', (e) => { e.preventDefault(); if(!this.overheated) this.isBoosting = true; });
+        bb.addEventListener('touchend', () => { this.isBoosting = false; });
     }
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        if(this.active && this.joystickActive) {
-            // THE MOVE LOGIC FIX:
-            // inputY is positive when you pull down, so we use -inputY to move forward when you push up.
-            const moveSpeed = 0.8;
-            const turnSpeed = 0.08;
-
-            // 1. Move the player forward/backward based on push/pull
-            this.player.translateZ(this.inputY * moveSpeed);
+        
+        if(this.active) {
+            // HEAT LOGIC
+            const bar = document.getElementById('heat-bar');
+            if(this.isBoosting && !this.overheated) {
+                this.heat += 0.8;
+                if(this.heat >= 100) { this.overheated = true; this.isBoosting = false; }
+            } else {
+                this.heat = Math.max(0, this.heat - 0.4);
+                if(this.heat <= 0) this.overheated = false;
+            }
             
-            // 2. Rotate the player based on left/right
-            this.player.rotation.y -= this.inputX * turnSpeed;
+            bar.style.width = this.heat + "%";
+            bar.style.background = this.overheated ? "#f00" : (this.heat > 70 ? "#ff0" : "#0f0");
+
+            if(this.joystickActive) {
+                let speed = (this.isBoosting) ? 1.6 : 0.8;
+                // WORKING MOVEMENT LOGIC
+                this.player.translateZ(this.inputY * speed);
+                this.player.rotation.y -= this.inputX * 0.07;
+            }
         }
 
-        // Camera strictly follows behind
-        const offset = new THREE.Vector3(0, 8, 15).applyQuaternion(this.player.quaternion);
-        this.camera.position.copy(this.player.position).add(offset);
+        const camPos = new THREE.Vector3(0, 8, 15).applyQuaternion(this.player.quaternion);
+        this.camera.position.copy(this.player.position).add(camPos);
         this.camera.lookAt(this.player.position);
-        
         this.renderer.render(this.scene, this.camera);
     }
 }
@@ -134,13 +161,9 @@ class GarageGame {
 const game = new GarageGame();
 
 document.getElementById('enter-btn').onclick = () => {
+    game.music.play().catch(()=>{});
     document.getElementById('gate').style.display = 'none';
     document.getElementById('briefing').style.display = 'flex';
-    
-    // SOUND
-    const audio = new Audio('https://dl.dropboxusercontent.com/scl/fi/lg4b8xgncie3x1b1ez4h8/Igzotic-Money-chaser-Official-Music-Video.mp3?rlkey=umjddw56vwumbnd2qjkg0ft2e&raw=1');
-    audio.loop = true;
-    audio.play().catch(()=>{});
 
     const loader = new GLTFLoader();
     const draco = new DRACOLoader();
@@ -149,7 +172,7 @@ document.getElementById('enter-btn').onclick = () => {
 
     loader.load('https://dl.dropboxusercontent.com/scl/fi/zyvmatbq3vghfqivnoikt/arena-mobile.glb?rlkey=szzux9sj9td425xngkzu3vni1&raw=1', (gltf) => {
         game.scene.add(gltf.scene);
-        document.getElementById('load-status').innerText = "READY";
+        document.getElementById('load-status').innerText = "SYSTEMS STABLE";
         document.getElementById('start-btn').disabled = false;
     });
 };
@@ -158,7 +181,19 @@ document.getElementById('start-btn').onclick = () => {
     document.getElementById('briefing').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
     document.querySelector('.joystick-container').style.display = 'block';
+    document.getElementById('boost-btn').style.display = 'block';
     game.active = true;
+    
+    // TIMER WITHOUT RELOAD
+    setInterval(() => {
+        if(!game.active) return;
+        game.timeLeft--;
+        document.getElementById('timer').innerText = `0:${game.timeLeft.toString().padStart(2,'0')}`;
+        if(game.timeLeft <= 0) {
+            game.active = false;
+            alert("TIME EXPIRED");
+        }
+    }, 1000);
 };
 </script>
 </body>
