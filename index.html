@@ -66,6 +66,7 @@
             border-radius: 50%; display: none; z-index: 100;
         }
 
+        /* MOBILE CONTROLS */
         .joystick-container {
             position: fixed; bottom: 20px; left: 20px;
             width: 120px; height: 120px; display: none; z-index: 200;
@@ -106,7 +107,7 @@
 
 <div id="briefing" class="screen" style="display:none;">
     <h1>MISSION BRIEFING</h1>
-    <p>OBJECTIVE: RECOVER 12 EXPERIMENTAL WRENCHES.<br>TIME LIMIT: 90 SECONDS<br><br><span id="load-status" style="color:#ffd700;">BUILDING ENVIRONMENT...</span></p>
+    <p>OBJECTIVE: RECOVER 12 EXPERIMENTAL WRENCHES.<br>TIME LIMIT: 90 SECONDS<br><br><span id="load-status" style="color:#ffd700;">INITIALIZING...</span></p>
     <div id="best-time-display" style="color: #ffd700; margin: 15px 0; font-size: clamp(0.7rem, 3vw, 0.9rem);"></div>
     <button class="gold-btn" id="start-btn" disabled>START MISSION</button>
 </div>
@@ -136,6 +137,8 @@
 
 <script type="module">
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/DRACOLoader.js';
 
 class GarageGame {
     constructor() {
@@ -165,7 +168,6 @@ class GarageGame {
         const joystickBase = document.querySelector('.joystick-container');
         const joystickStick = document.getElementById('joystick-stick');
         const boostBtn = document.getElementById('boost-btn');
-        
         let touchId = null;
         
         joystickBase.addEventListener('touchstart', (e) => {
@@ -209,10 +211,8 @@ class GarageGame {
         const rect = base.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        
         let deltaX = touch.clientX - centerX;
         let deltaY = touch.clientY - centerY;
-        
         const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
         const maxDistance = 35;
         
@@ -223,7 +223,6 @@ class GarageGame {
         
         this.joystickX = deltaX / maxDistance;
         this.joystickY = deltaY / maxDistance;
-        
         stick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
     }
 
@@ -236,48 +235,31 @@ class GarageGame {
     initThree() {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x010103);
-        this.scene.fog = new THREE.FogExp2(0x010103, 0.008);
-        this.camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 800);
-        this.renderer = new THREE.WebGLRenderer({ 
-            antialias: false, 
-            powerPreference: "low-power"
-        });
-        this.renderer.setPixelRatio(1);
+        this.scene.fog = new THREE.FogExp2(0x010103, 0.006);
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1500);
+        this.renderer = new THREE.WebGLRenderer({ antialias: false });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        this.scene.add(new THREE.HemisphereLight(0xffd700, 0x000033, 0.8));
-        this.scene.add(new THREE.AmbientLight(0x404040, 0.3));
-
+        this.scene.add(new THREE.HemisphereLight(0xffd700, 0x000033, 1.2));
         this.player = new THREE.Group();
         const pMesh = new THREE.Mesh(
             new THREE.ConeGeometry(0.4, 1.3, 4), 
-            new THREE.MeshBasicMaterial({ color: 0xffd700 })
+            new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 2 })
         );
         pMesh.rotation.x = Math.PI/2;
         this.player.add(pMesh);
-        this.player.add(new THREE.PointLight(0xffd700, 10, 20));
-
-        this.player.position.set(0, 0.8, 0);
+        this.player.position.set(212.2, 0.8, -236.5);
         this.scene.add(this.player);
-
         this.ctx = document.getElementById('radar-canvas').getContext('2d');
-        
-        window.addEventListener('resize', () => {
-            this.camera.aspect = window.innerWidth / window.innerHeight;
-            this.camera.updateProjectionMatrix();
-            this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-        
         this.animate();
     }
 
     triggerBoost() {
         this.isBoosting = true; 
         this.boostReady = false;
-        document.getElementById('boost-text').innerText = "BOOSTING...";
         document.getElementById('boost-btn').classList.add('disabled');
-        
         let blast = setInterval(() => {
             this.boostValue -= 4;
             if(this.boostValue <= 0) { 
@@ -289,65 +271,27 @@ class GarageGame {
     }
 
     startCooldown() {
-        document.getElementById('boost-text').innerText = "RECHARGING...";
         let recharge = setInterval(() => {
             this.boostValue += 2;
             if(this.boostValue >= 100) { 
                 clearInterval(recharge); 
                 this.boostReady = true; 
-                document.getElementById('boost-text').innerText = "BOOST READY";
                 document.getElementById('boost-btn').classList.remove('disabled');
             }
         }, 100);
     }
 
-    createLightweightEnvironment() {
-        // Lightweight ground
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(400, 400, 1, 1),
-            new THREE.MeshBasicMaterial({ color: 0x1a1a1a })
-        );
-        ground.rotation.x = -Math.PI/2;
-        this.scene.add(ground);
-        
-        // Simple walls
-        const wallMat = new THREE.MeshBasicMaterial({ color: 0x2a2a2a });
-        const wall1 = new THREE.Mesh(new THREE.BoxGeometry(400, 25, 2), wallMat);
-        wall1.position.set(0, 12.5, -200);
-        const wall2 = new THREE.Mesh(new THREE.BoxGeometry(400, 25, 2), wallMat);
-        wall2.position.set(0, 12.5, 200);
-        const wall3 = new THREE.Mesh(new THREE.BoxGeometry(2, 25, 400), wallMat);
-        wall3.position.set(-200, 12.5, 0);
-        const wall4 = new THREE.Mesh(new THREE.BoxGeometry(2, 25, 400), wallMat);
-        wall4.position.set(200, 12.5, 0);
-        this.scene.add(wall1, wall2, wall3, wall4);
-        
-        // Add some pillars for visual interest
-        const pillarMat = new THREE.MeshBasicMaterial({ color: 0x444444 });
-        for(let i = 0; i < 8; i++) {
-            const angle = (i / 8) * Math.PI * 2;
-            const pillar = new THREE.Mesh(new THREE.BoxGeometry(4, 20, 4), pillarMat);
-            pillar.position.set(Math.cos(angle) * 120, 10, Math.sin(angle) * 120);
-            this.scene.add(pillar);
-        }
-    }
-
     spawnWrenches() {
-        const metal = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const metal = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.9, roughness: 0.1 });
         for(let i=0; i<12; i++) {
             const group = new THREE.Group();
-            const head = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 6, 10, Math.PI * 1.6), metal);
+            const head = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.08, 6, 10), metal);
             const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.1), metal);
             handle.position.y = -0.45;
             group.add(head, handle);
-            const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.02, 12, 30), new THREE.MeshBasicMaterial({ color: 0xff6600 }));
-            ring.rotation.x = Math.PI/2;
-            group.add(ring);
-            
             const angle = Math.random() * 6.28;
-            const dist = 30 + Math.random() * 150;
-            group.position.set(Math.cos(angle)*dist, 1.6, Math.sin(angle)*dist);
-            
+            const dist = 30 + Math.random() * 100;
+            group.position.set(212.2 + Math.cos(angle)*dist, 1.6, -236.5 + Math.sin(angle)*dist);
             this.items.push(group);
             this.scene.add(group);
         }
@@ -355,75 +299,42 @@ class GarageGame {
 
     animate() {
         requestAnimationFrame(() => this.animate());
-        
         if(this.active) {
-            let speed = this.isBoosting ? 1.5 : 0.55;
-            
+            let speed = this.isBoosting ? 1.85 : 0.62;
             if (this.joystickActive) {
-                const moveAmount = -this.joystickY * speed;
-                this.player.translateZ(moveAmount);
-                
-                const turnAmount = -this.joystickX * 0.06;
-                this.player.rotation.y += turnAmount;
+                this.player.translateZ(-this.joystickY * speed);
+                this.player.rotation.y += -this.joystickX * 0.065;
             }
-
             document.getElementById('boost-bar').style.width = this.boostValue + "%";
-            
             this.items.forEach(w => {
                 if(w.visible && this.player.position.distanceTo(w.position) < 6) {
                     w.visible = false;
-                    const s = this.pingSound.cloneNode(); 
-                    s.volume = 0.15; 
-                    s.play().catch(()=>{});
                     this.collected++;
-                    this.score += 200;
                     document.getElementById('count').innerText = this.collected;
-                    document.getElementById('score').innerText = this.score;
                     if(this.collected >= 12) this.endGame(true);
                 }
             });
-
-            const ctx = this.ctx; 
-            ctx.clearRect(0,0,120,120);
+            this.ctx.clearRect(0,0,120,120);
             this.items.forEach(item => {
                 if(item.visible) {
-                    ctx.fillStyle = "#fff"; 
-                    ctx.beginPath();
-                    ctx.arc(60 + (item.position.x - this.player.position.x)*0.3, 60 + (item.position.z - this.player.position.z)*0.3, 2, 0, 7);
-                    ctx.fill();
+                    this.ctx.fillStyle = "#fff"; 
+                    this.ctx.beginPath();
+                    this.ctx.arc(60 + (item.position.x - this.player.position.x)*0.2, 60 + (item.position.z - this.player.position.z)*0.2, 2, 0, 7);
+                    this.ctx.fill();
                 }
             });
-            ctx.fillStyle = "#ffd700"; 
-            ctx.beginPath(); 
-            ctx.arc(60,60,4,0,7); 
-            ctx.fill();
         }
-        
-        const camOff = new THREE.Vector3(0, 4, 10).applyQuaternion(this.player.quaternion);
-        this.camera.position.lerp(this.player.position.clone().add(camOff), 0.12);
+        const camOff = new THREE.Vector3(0, 5, 12).applyQuaternion(this.player.quaternion);
+        this.camera.position.lerp(this.player.position.clone().add(camOff), 0.1);
         this.camera.lookAt(this.player.position);
         this.renderer.render(this.scene, this.camera);
     }
 
     endGame(win) {
         this.active = false;
-        const timeTaken = this.startTime - this.timeLeft;
-        let isNewRecord = false;
-        if (win) {
-            const best = localStorage.getItem('kobi_best_time');
-            if (!best || timeTaken < parseInt(best)) {
-                localStorage.setItem('kobi_best_time', timeTaken);
-                isNewRecord = true;
-            }
-        }
         document.getElementById('hud').style.display = 'none';
-        document.getElementById('radar-container').style.display = 'none';
-        document.querySelector('.joystick-container').style.display = 'none';
-        document.getElementById('boost-btn').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
-        document.getElementById('new-record-tag').style.display = isNewRecord ? 'block' : 'none';
         document.getElementById('result-title').innerText = win ? "MISSION COMPLETE" : "MISSION FAILED";
-        document.getElementById('stats').innerHTML = `SCORE: ${this.score}<br>TIME: ${timeTaken}s`;
     }
 }
 
@@ -433,18 +344,33 @@ document.getElementById('enter-btn').onclick = () => {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('briefing').style.display = 'flex';
     
-    // Skip loading heavy arena file - use lightweight environment instead
-    setTimeout(() => {
-        document.getElementById('load-status').innerText = "BUILDING ENVIRONMENT...";
-        game.createLightweightEnvironment();
-        game.spawnWrenches();
-        document.getElementById('load-status').innerText = "READY FOR DEPLOYMENT";
-        document.getElementById('start-btn').disabled = false;
-    }, 500);
+    // SETUP DRACO AND GLTF
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(dracoLoader);
+    
+    // NEW MOBILE LINK APPLIED HERE
+    loader.load(
+        'https://www.dropbox.com/scl/fi/zyvmatbq3vghfqivnoikt/arena-mobile.glb?rlkey=szzux9sj9td425xngkzu3vni1&st=eu2vhyjn&raw=1',
+        (gltf) => {
+            game.scene.add(gltf.scene);
+            game.spawnWrenches();
+            document.getElementById('load-status').innerText = "LOADED";
+            document.getElementById('start-btn').disabled = false;
+        },
+        (progress) => {
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            document.getElementById('load-status').innerText = `LOADING: ${percent}%`;
+        },
+        (error) => {
+            console.error('Arena error:', error);
+            document.getElementById('load-status').innerText = "ERROR LOADING ARENA";
+        }
+    );
     
     const audio = new Audio('https://dl.dropboxusercontent.com/scl/fi/lg4b8xgncie3x1b1ez4h8/Igzotic-Money-chaser-Official-Music-Video.mp3?rlkey=umjddw56vwumbnd2qjkg0ft2e&raw=1');
     audio.loop = true; 
-    audio.volume = 0.3;
     audio.play().catch(()=>{});
 };
 
@@ -456,8 +382,8 @@ document.getElementById('start-btn').onclick = () => {
     document.getElementById('boost-btn').style.display = 'flex';
     game.active = true;
     
-    const timerInt = setInterval(() => { 
-        if(!game.active) { clearInterval(timerInt); return; }
+    setInterval(() => { 
+        if(!game.active) return;
         game.timeLeft--; 
         let m = Math.floor(game.timeLeft/60), s = game.timeLeft%60;
         document.getElementById('timer').innerText = `${m}:${s.toString().padStart(2,'0')}`;
