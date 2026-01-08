@@ -38,21 +38,18 @@
             text-transform: uppercase; letter-spacing: 2px;
         }
 
-        /* TOP LEFT HUD */
         #hud { 
             position: fixed; top: 20px; left: 20px; display: none; z-index: 500;
             background: rgba(0,0,0,0.7); padding: 15px; border-left: 4px solid #ffd700;
         }
         .hud-item { margin-bottom: 5px; font-size: 0.8rem; letter-spacing: 1px; }
 
-        /* RADAR MAP (Bottom Right) */
         #radar-container {
             position: fixed; bottom: 120px; right: 20px; width: 110px; height: 110px;
             background: rgba(0, 20, 0, 0.8); border: 2px solid #ffd700;
             border-radius: 50%; display: none; z-index: 500;
         }
 
-        /* CONTROLS */
         .joystick-container { position: fixed; bottom: 30px; left: 30px; width: 120px; height: 120px; display: none; z-index: 1000; }
         .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; }
         .joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; background: #ffd700; border-radius: 50%; }
@@ -69,7 +66,7 @@
 
 <div id="briefing" class="screen" style="display:none;">
     <h1>MISSION BRIEFING</h1>
-    <p id="load-status" style="color:#ffd700;">CONNECTING TO SATELLITE...</p>
+    <p id="load-status" style="color:#ffd700;">STABILIZING RIG...</p>
     <button class="gold-btn" id="start-btn" disabled>START MISSION</button>
 </div>
 
@@ -98,6 +95,7 @@ class GarageGame {
         this.joystickX = 0;
         this.joystickY = 0;
         this.isBoosting = false;
+        this.bgMusic = null;
         
         this.initThree();
         this.setupMobileControls();
@@ -137,19 +135,24 @@ class GarageGame {
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x020205);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        this.renderer = new THREE.WebGLRenderer({ antialias: false });
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(this.renderer.domElement);
 
+        // THE "NEW LIGHTING" YOU LIKED
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.0));
+        const sun = new THREE.DirectionalLight(0xffd700, 1.5);
+        sun.position.set(5, 10, 7.5);
+        this.scene.add(sun);
+
         this.player = new THREE.Group();
-        const pMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
-        pMesh.rotation.x = Math.PI/2;
+        const pMesh = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.2 }));
+        pMesh.rotation.x = Math.PI/2; 
         this.player.add(pMesh);
         this.player.position.set(212, 1, -236);
         this.scene.add(this.player);
 
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.5));
         this.ctx = document.getElementById('radar-canvas').getContext('2d');
         this.animate();
     }
@@ -169,14 +172,13 @@ class GarageGame {
     animate() {
         requestAnimationFrame(() => this.animate());
         if(this.active) {
-            let s = this.isBoosting ? 1.5 : 0.7;
+            let s = this.isBoosting ? 1.6 : 0.8;
             if(this.joystickActive) {
-                // FIXED DIRECTIONS
+                // FIXED: Moving "Forward" relative to where the cone points
                 this.player.translateZ(-this.joystickY * s); 
                 this.player.rotation.y -= this.joystickX * 0.05;
             }
 
-            // CHECK COLLISIONS
             this.items.forEach(w => {
                 if(w.visible && this.player.position.distanceTo(w.position) < 4) {
                     w.visible = false; 
@@ -185,7 +187,6 @@ class GarageGame {
                 }
             });
 
-            // UPDATE RADAR
             this.ctx.clearRect(0,0,110,110);
             this.items.forEach(w => { if(w.visible) {
                 this.ctx.fillStyle = "#ffd700"; this.ctx.beginPath();
@@ -194,7 +195,8 @@ class GarageGame {
             }});
         }
 
-        const offset = new THREE.Vector3(0, 6, 14).applyQuaternion(this.player.quaternion);
+        // CAMERA ALIGNMENT: Placed behind the player correctly
+        const offset = new THREE.Vector3(0, 6, 15).applyQuaternion(this.player.quaternion);
         this.camera.position.lerp(this.player.position.clone().add(offset), 0.1);
         this.camera.lookAt(this.player.position);
         this.renderer.render(this.scene, this.camera);
@@ -207,6 +209,10 @@ document.getElementById('enter-btn').onclick = () => {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('briefing').style.display = 'flex';
     
+    game.bgMusic = new Audio('https://dl.dropboxusercontent.com/scl/fi/lg4b8xgncie3x1b1ez4h8/Igzotic-Money-chaser-Official-Music-Video.mp3?rlkey=umjddw56vwumbnd2qjkg0ft2e&raw=1');
+    game.bgMusic.loop = true;
+    game.bgMusic.play().catch(e => {});
+
     const draco = new DRACOLoader();
     draco.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
     const loader = new GLTFLoader();
@@ -216,17 +222,14 @@ document.getElementById('enter-btn').onclick = () => {
         (gltf) => {
             game.scene.add(gltf.scene);
             game.spawnWrenches();
-            document.getElementById('load-status').innerText = "ARENA LOADED";
+            document.getElementById('load-status').innerText = "SYSTEMS ONLINE";
             document.getElementById('start-btn').disabled = false;
-        },
-        (p) => {
-            let pct = Math.round((p.loaded/p.total)*100);
-            document.getElementById('load-status').innerText = "DOWNLOADING: " + pct + "%";
         }
     );
 };
 
 document.getElementById('start-btn').onclick = () => {
+    if(game.bgMusic) game.bgMusic.play();
     document.getElementById('briefing').style.display = 'none';
     document.getElementById('hud').style.display = 'block';
     document.getElementById('radar-container').style.display = 'block';
@@ -240,8 +243,8 @@ document.getElementById('start-btn').onclick = () => {
         document.getElementById('timer').innerText = `0:${game.timeLeft.toString().padStart(2,'0')}`;
         if(game.timeLeft <= 0) {
             game.active = false;
-            alert("TIME'S UP!");
-            location.reload();
+            alert("TIME EXPIRED - EXPLORATION MODE ENABLED");
+            // location.reload(); // DISABLED AUTO-RELOAD FOR TESTING
         }
     }, 1000);
 };
