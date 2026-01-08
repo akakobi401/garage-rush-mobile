@@ -9,23 +9,44 @@
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Syncopate', sans-serif; color: #fff; touch-action: none; }
         
-        .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; background: #000; text-align: center; }
+        /* SCREENS */
+        .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; background: #000; text-align: center; }
         .intro-logo { width: 250px; margin-bottom: 20px; animation: logoFloat 3s infinite ease-in-out; }
         @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
         
         .gold-btn { background: #ffd700; color: #000; border: none; padding: 15px 40px; font-weight: 900; text-transform: uppercase; cursor: pointer; letter-spacing: 2px; }
         
-        #hud { position: fixed; top: 20px; left: 20px; display: none; z-index: 500; background: rgba(0,0,0,0.7); padding: 15px; border-left: 4px solid #ffd700; }
-        
-        /* OVERHEAT BAR */
-        .heat-container { width: 100px; height: 10px; background: rgba(255,255,255,0.2); margin-top: 10px; border: 1px solid #fff; }
+        /* HUD & OVERHEAT */
+        #hud { position: fixed; top: 20px; left: 20px; display: none; z-index: 1500; background: rgba(0,0,0,0.8); padding: 15px; border-left: 4px solid #ffd700; pointer-events: none; }
+        .heat-container { width: 120px; height: 12px; background: rgba(255,255,255,0.1); margin-top: 8px; border: 1px solid rgba(255,255,255,0.3); position: relative; overflow: hidden; }
         #heat-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.1s; }
 
-        .joystick-container { position: fixed; bottom: 40px; left: 40px; width: 120px; height: 120px; display: none; z-index: 1000; }
-        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.4); border-radius: 50%; }
-        .joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; background: #ffd700; border-radius: 50%; }
+        /* JOYSTICK */
+        .joystick-container { position: fixed; bottom: 40px; left: 40px; width: 130px; height: 130px; display: none; z-index: 1500; }
+        .joystick-base { width: 100%; height: 100%; background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.2); border-radius: 50%; }
+        .joystick-stick { position: absolute; top: 50%; left: 50%; width: 55px; height: 55px; margin: -27.5px 0 0 -27.5px; background: #ffd700; border-radius: 50%; box-shadow: 0 0 15px rgba(255,215,0,0.5); }
         
-        .boost-btn { position: fixed; bottom: 40px; right: 40px; width: 90px; height: 90px; display: none; z-index: 1000; background: rgba(255,0,0,0.2); border: 3px solid #f00; border-radius: 50%; color: #f00; font-weight: 900; text-align: center; line-height: 84px; font-size: 12px; }
+        /* BOOST BUTTON - FIXED VISIBILITY */
+        #boost-btn { 
+            position: fixed; 
+            bottom: 45px; 
+            right: 45px; 
+            width: 100px; 
+            height: 100px; 
+            display: none; 
+            z-index: 1600; /* Higher than joystick */
+            background: rgba(255,0,0,0.2); 
+            border: 4px solid #f00; 
+            border-radius: 50%; 
+            color: #fff; 
+            font-weight: 900; 
+            text-align: center; 
+            line-height: 92px; 
+            font-size: 14px;
+            box-shadow: 0 0 20px rgba(255,0,0,0.3);
+            text-shadow: 0 0 5px #000;
+        }
+        #boost-btn:active { background: rgba(255,0,0,0.5); transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -38,19 +59,19 @@
 
 <div id="briefing" class="screen" style="display:none;">
     <h1>MISSION BRIEFING</h1>
-    <p id="load-status">OPTIMIZING ASSETS...</p>
+    <p id="load-status">OPTIMIZING ENGINE...</p>
     <button class="gold-btn" id="start-btn" disabled>START MISSION</button>
 </div>
 
 <div id="hud">
-    <div>TOOLS: <span id="count">0</span>/12</div>
-    <div id="timer" style="font-size: 20px;">1:30</div>
-    <div style="font-size: 10px; margin-top: 5px;">ENGINE HEAT</div>
+    <div style="font-size: 12px; letter-spacing: 1px;">TOOLS: <span id="count" style="color:#ffd700">0</span>/12</div>
+    <div id="timer" style="font-size: 24px; font-weight: 900;">1:30</div>
+    <div style="font-size: 9px; margin-top: 10px; color: #aaa;">SYSTEM HEAT</div>
     <div class="heat-container"><div id="heat-bar"></div></div>
 </div>
 
 <div class="joystick-container"><div class="joystick-base"></div><div class="joystick-stick" id="joystick-stick"></div></div>
-<div class="boost-btn" id="boost-btn">BOOST</div>
+<div id="boost-btn">BOOST</div>
 
 <script type="module">
 import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
@@ -63,12 +84,9 @@ class GarageGame {
         this.items = [];
         this.collected = 0;
         this.timeLeft = 90;
-        
         this.joystickActive = false;
         this.inputX = 0;
         this.inputY = 0;
-        
-        // BOOST SYSTEM
         this.isBoosting = false;
         this.heat = 0;
         this.overheated = false;
@@ -84,15 +102,15 @@ class GarageGame {
         this.scene.background = new THREE.Color(0x020205);
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         
-        this.renderer = new THREE.WebGLRenderer({ antialias: false }); // Antialias OFF for Safari RAM
+        this.renderer = new THREE.WebGLRenderer({ antialias: false });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(this.renderer.domElement);
 
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2));
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 2.5));
         
         this.player = new THREE.Group();
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xffd700 }));
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.5, 8), new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.3 }));
         cone.rotation.x = Math.PI / 2; 
         this.player.add(cone);
         this.player.position.set(212, 1, -236);
@@ -107,7 +125,7 @@ class GarageGame {
         const js = document.getElementById('joystick-stick');
         const bb = document.getElementById('boost-btn');
 
-        jc.addEventListener('touchstart', (e) => { e.preventDefault(); this.joystickActive = true; });
+        jc.addEventListener('touchstart', (e) => { e.preventDefault(); this.joystickActive = true; }, {passive: false});
         jc.addEventListener('touchmove', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
@@ -119,10 +137,10 @@ class GarageGame {
             this.inputX = (Math.cos(angle) * dist) / 40;
             this.inputY = (Math.sin(angle) * dist) / 40;
             js.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
-        });
+        }, {passive: false});
         jc.addEventListener('touchend', () => { this.joystickActive = false; this.inputX = 0; this.inputY = 0; js.style.transform = 'translate(-50%, -50%)'; });
 
-        bb.addEventListener('touchstart', (e) => { e.preventDefault(); if(!this.overheated) this.isBoosting = true; });
+        bb.addEventListener('touchstart', (e) => { e.preventDefault(); if(!this.overheated) this.isBoosting = true; }, {passive: false});
         bb.addEventListener('touchend', () => { this.isBoosting = false; });
     }
 
@@ -133,25 +151,24 @@ class GarageGame {
             // HEAT LOGIC
             const bar = document.getElementById('heat-bar');
             if(this.isBoosting && !this.overheated) {
-                this.heat += 0.8;
+                this.heat += 1.0; // Slightly faster heating
                 if(this.heat >= 100) { this.overheated = true; this.isBoosting = false; }
             } else {
-                this.heat = Math.max(0, this.heat - 0.4);
+                this.heat = Math.max(0, this.heat - 0.5);
                 if(this.heat <= 0) this.overheated = false;
             }
             
             bar.style.width = this.heat + "%";
-            bar.style.background = this.overheated ? "#f00" : (this.heat > 70 ? "#ff0" : "#0f0");
+            bar.style.background = this.overheated ? "#f00" : (this.heat > 75 ? "#ff0" : "#0f0");
 
             if(this.joystickActive) {
-                let speed = (this.isBoosting) ? 1.6 : 0.8;
-                // WORKING MOVEMENT LOGIC
+                let speed = (this.isBoosting) ? 1.8 : 0.85; // Boost is faster
                 this.player.translateZ(this.inputY * speed);
-                this.player.rotation.y -= this.inputX * 0.07;
+                this.player.rotation.y -= this.inputX * 0.08;
             }
         }
 
-        const camPos = new THREE.Vector3(0, 8, 15).applyQuaternion(this.player.quaternion);
+        const camPos = new THREE.Vector3(0, 8, 16).applyQuaternion(this.player.quaternion);
         this.camera.position.copy(this.player.position).add(camPos);
         this.camera.lookAt(this.player.position);
         this.renderer.render(this.scene, this.camera);
@@ -172,7 +189,7 @@ document.getElementById('enter-btn').onclick = () => {
 
     loader.load('https://dl.dropboxusercontent.com/scl/fi/zyvmatbq3vghfqivnoikt/arena-mobile.glb?rlkey=szzux9sj9td425xngkzu3vni1&raw=1', (gltf) => {
         game.scene.add(gltf.scene);
-        document.getElementById('load-status').innerText = "SYSTEMS STABLE";
+        document.getElementById('load-status').innerText = "STABLE CONNECTION";
         document.getElementById('start-btn').disabled = false;
     });
 };
@@ -184,15 +201,11 @@ document.getElementById('start-btn').onclick = () => {
     document.getElementById('boost-btn').style.display = 'block';
     game.active = true;
     
-    // TIMER WITHOUT RELOAD
     setInterval(() => {
         if(!game.active) return;
         game.timeLeft--;
         document.getElementById('timer').innerText = `0:${game.timeLeft.toString().padStart(2,'0')}`;
-        if(game.timeLeft <= 0) {
-            game.active = false;
-            alert("TIME EXPIRED");
-        }
+        if(game.timeLeft <= 0) { game.active = false; alert("MISSION COMPLETE"); }
     }, 1000);
 };
 </script>
